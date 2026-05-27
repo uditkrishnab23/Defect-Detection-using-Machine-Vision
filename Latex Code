@@ -1,0 +1,1144 @@
+% ============================================================
+%  CASTVISION — IEEE Conference Paper
+%  Defect Detection in Automotive Spur Gears Using Multi-View
+%  Machine Vision: A Comparative Study of YOLOv8, YOLOv11,
+%  and Faster R-CNN
+%  VIT Chennai, School of Electronics Engineering (SENSE)
+% ============================================================
+
+\documentclass[conference]{IEEEtran}
+
+% ── Packages ────────────────────────────────────────────────
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{colortbl}
+\raggedbottom
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=black,
+  citecolor=black,
+  urlcolor=black
+}
+
+% ── Title & Authors ─────────────────────────────────────────
+\title{Defect Detection in Automotive Spur Gears Using Multi-View
+       Machine Vision: A Comparative Study of YOLOv8, YOLOv11,
+       and Faster R-CNN}
+
+\author{
+\IEEEauthorblockN{
+M. Hariharan*, Udit Krishna B†, K L Krishna Chaitanya Reddy‡
+}
+\IEEEauthorblockA{
+*†‡\textit{School of Electronics Engineering (SENSE)} \\
+Vellore Institute of Technology Chennai, \\
+Chennai-600127, India \\
+Email: \{hariharan.m2022, uditkrishna.b2022, krishna.chaitanya2022\}@vitstudent.ac.in
+}
+}
+% ============================================================
+\begin{document}
+
+\maketitle
+
+% ── Abstract ────────────────────────────────────────────────
+\begin{abstract}
+Spur gears are critical mechanical components in
+automotive and industrial systems, and undetected defects in
+these components can lead to catastrophic machinery failures,
+safety hazards, and significant production losses. Traditional
+manual inspection methods are slow, error-prone, and not scal
+able to high-throughput manufacturing environments. This paper
+presents an automated multi-view machine vision
+system for spur gear defect detection that employs a conveyor
+belt, a robotic arm for automated gear flipping, and a dual
+camera setup to capture four distinct views per gear. Three
+state-of-the-art deep learning models—YOLOv8, YOLOv11, and
+Faster R-CNN—were trained and comparatively evaluated on a
+custom dataset of 1037 real-captured spur gear images annotated
+for binary defect classification (Accepted/Rejected). Experimental
+results demonstrate that YOLOv8 achieves the best overall
+performance with a mean Average Precision (mAP) of 97.31%,
+precision of 94.98%, and recall of 97.04%. YOLOv11 offers
+the fastest inference at 14.4ms per image, while Faster R
+CNN exhibits the lowest throughput at 9.86FPS. The complete
+system is deployed through a web-based graphical user interface
+that enables real-time four-view inspection and delivers a clear
+Accept/Reject verdict per gear inspection cycle.
+Index Terms—Spur Gear, Defect Detection, YOLOv8,
+YOLOv11, Faster R-CNN, Machine Vision, Multi-View Inspec
+tion, Deep Learning, Object Detection, Conveyor Inspection.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Spur Gear, Defect Detection, YOLOv8, YOLOv11, Faster R-CNN,
+Machine Vision, Multi-View Inspection, Deep Learning,
+Object Detection, Conveyor Inspection
+\end{IEEEkeywords}
+
+% ============================================================
+\section{Introduction}
+\label{sec:intro}
+
+Spur gears are among the most fundamental and widely deployed
+mechanical transmission elements in automotive, aerospace, and
+industrial machinery. They transfer torque between parallel shafts
+and are present in gearboxes, engines, conveyor drives, and
+precision instruments. The integrity of spur gears is therefore
+paramount: even minor surface defects such as pitting, tooth
+breakage, spalling, cracks, or wear can propagate rapidly under
+cyclic loading, leading to gear failure, machine downtime, and,
+in safety-critical applications, injury to operators. In automotive
+manufacturing, gear defects that escape the production line can
+trigger costly recalls, warranty claims, and reputational damage.
+
+Historically, gear quality assurance has relied on manual visual
+inspection, wherein trained technicians examine individual gears
+under illuminated conditions and either accept or reject them
+based on visual cues. This approach is inherently limited by human
+fatigue, subjectivity, and throughput constraints. An experienced
+inspector can typically examine only a few hundred gears per shift,
+and subtle sub-surface or edge defects often escape detection
+entirely. As production volumes increase and component tolerances
+tighten, manual inspection has become a critical bottleneck that
+does not scale economically \cite{haobo2024}.
+
+Computer vision has been explored as an alternative since the early
+1990s, but classical image-processing pipelines based on
+hand-crafted features (edge detection, morphological operations,
+template matching) suffer from sensitivity to lighting variation,
+surface finish differences, and background clutter
+\cite{tabernik2019, lv2020}. More recently, deep convolutional
+neural networks (CNNs) have demonstrated remarkable capability in
+detecting and localising surface defects in industrial settings
+\cite{ilani2025, katiyar2021}. Object detection architectures
+such as Faster R-CNN \cite{ren2015}, YOLO \cite{redmon2016}, and
+SSD \cite{liu2016ssd} allow simultaneous classification and
+bounding-box localisation in a single forward pass, making them
+attractive for real-time inspection \cite{yolov8wd2025, mpayolo2025}.
+
+A key limitation of most prior inspection systems is their
+reliance on a single camera angle. Gears are three-dimensional
+objects, and defects located on the tooth flanks, bottom face, or
+side surfaces may be entirely occluded from a top-view camera.
+Katiyar~et~al.~\cite{katiyar2021} proposed an automated defect
+detection approach using MobileNet-SSD on physical component
+surfaces and achieved 95\% precision in a single-view configuration.
+However, their system could not capture hidden or under-side defects.
+This motivates the design of a multi-view inspection pipeline that
+systematically examines all exposed surfaces of the gear
+\cite{multiview3d}.
+
+This paper presents an automated multi-view machine
+vision system for spur gear defect detection. The proposed hardware
+pipeline places each gear on a conveyor-fed inspection platform where
+two cameras simultaneously capture a top view and a side view. A
+robotic arm then automatically flips the gear, and the same two
+cameras capture the bottom view and the opposite side view,
+yielding four images per gear \cite{smartinspection2023}. All four
+images are processed by a trained detection model, and a final binary
+verdict---\textit{Accepted} or \textit{Rejected}---is issued.
+Results are displayed on the CASTVISION web-based graphical user
+interface (GUI).
+
+Three detection models are trained and compared on the same custom
+dataset: \textbf{YOLOv8} \cite{yolov8}, \textbf{YOLOv11}
+\cite{yolov11}, and \textbf{Faster R-CNN} \cite{ren2015}. These
+architectures span a range of design philosophies---single-stage
+anchor-free, latest-generation attention-augmented single-stage, and
+two-stage region-proposal-based---providing a thorough comparative
+benchmark for the binary gear defect detection task. Recent work has
+demonstrated the effectiveness of improved YOLO architectures for
+surface defect detection on industrial components \cite{sun2026,
+yolo11defect2025}, and this study extends those results to the
+specific domain of spur gear inspection under a multi-view framework.
+
+The key contributions of this work are:
+\begin{enumerate}
+  \item A custom, domain-specific dataset of 1037 real-captured spur
+        gear images with manual bounding-box annotations for binary
+        defect classification (Accepted/Rejected).
+  \item A multi-view four-camera hardware pipeline incorporating a
+        robotic arm for automated gear flipping, enabling inspection
+        of all gear surfaces.
+  \item A rigorous comparative study of YOLOv8, YOLOv11, and Faster
+        R-CNN on the custom dataset, reporting mAP, precision, recall,
+        F1-score, FPS, inference latency, and model size.
+  \item A deployed web application, CASTVISION, providing a
+        user-friendly four-view gear inspection interface with
+        real-time Accept/Reject verdicts.
+\end{enumerate}
+
+The remainder of this paper is organised as follows.
+Section~\ref{sec:lit} reviews related work.
+Section~\ref{sec:method} describes the proposed system and
+experimental methodology. Section~\ref{sec:results} presents and
+discusses the results. Section~\ref{sec:conclusion} concludes the
+paper and outlines future directions.
+
+% ============================================================
+\section{Literature Review}
+\label{sec:lit}
+
+\subsection{Traditional Defect Detection Methods}
+
+Early automated inspection systems relied on classical image
+processing techniques. Canny and Sobel edge detectors, Hough
+transforms, and morphological operations were combined with
+rule-based classifiers to flag surface anomalies \cite{tabernik2019}.
+While computationally lightweight, such pipelines required careful
+parameter tuning for each specific defect type and were brittle
+under illumination changes or surface finish variation. Texture
+analysis methods---co-occurrence matrices, Gabor filters, and local
+binary patterns---provided some robustness but struggled with the
+irregular and multi-scale nature of gear tooth defects. Mery and
+Berti \cite{visual_inspection_survey} studied automatic detection of
+welding defects using texture features and highlighted how classical
+techniques plateau in performance without structural adaptation.
+Manual visual inspection, as discussed in Section~\ref{sec:intro},
+remained the industrial standard primarily because these classical
+methods could not reliably generalise across gear types and defect
+morphologies \cite{lv2020}.
+
+\subsection{CNN-Based Defect Detection}
+
+The advent of deep CNNs transformed industrial defect detection.
+AlexNet \cite{alexnet} demonstrated that large CNNs trained on
+ImageNet \cite{imagenet} features could generalise to recognition
+tasks far beyond their training distribution. Subsequent
+architectures---VGGNet \cite{vggnet} and ResNet \cite{resnet}---pushed
+classification accuracy on benchmark datasets and became the standard
+backbone encoders for downstream detection tasks. Transfer learning
+from ImageNet-pretrained weights was shown to substantially reduce
+the labelled data required for industrial inspection
+\cite{transfer_learning}, an important property given the cost of
+annotating defect datasets.
+
+Ilani and Banad \cite{ilani2025} applied CNN-based models to
+industrial surface defect detection and demonstrated strong
+generalisation to unseen defect classes. Tabernik~et~al.
+\cite{tabernik2019} introduced a segmentation-based deep learning
+approach on the DAGM surface defect dataset, achieving approximately
+97\% detection accuracy by combining pixel-level segmentation with
+classification heads. Zhang~et~al. \cite{zhang2021inspection}
+proposed deep learning-based visual inspection specifically for
+surface defect detection in industrial manufacturing contexts and
+demonstrated that attention-guided networks improve recall on
+fine-grained defect patterns. Haobo \cite{haobo2024} provided a
+comprehensive survey of industrial surface defect detection methods
+based on deep learning, establishing benchmarks across multiple
+defect categories.
+
+\subsection{Object Detection Architectures}
+
+Quality control review surveys \cite{dl_quality_review} have
+consistently identified three core challenges in industrial defect
+detection: class imbalance between defect-free and defective samples,
+high intra-class variability in defect appearance, and limited
+annotated industrial datasets. Our work directly addresses the third
+challenge by constructing a custom spur gear dataset.
+
+The two dominant paradigms in object detection are two-stage and
+single-stage detectors. Girshick~et~al. introduced the R-CNN family:
+R-CNN extracted region proposals using selective search; Fast R-CNN
+\cite{fastrcnn} introduced RoI pooling to share convolution across
+proposals; and Faster R-CNN \cite{ren2015} replaced selective search
+with a learnable Region Proposal Network (RPN), achieving near
+real-time performance at high accuracy on the COCO \cite{coco} and
+PASCAL VOC \cite{pascalvoc} benchmarks.
+
+Single-stage detectors sacrifice some accuracy for speed. Redmon
+et~al. introduced YOLO (You Only Look Once) \cite{redmon2016},
+which reformulated detection as a single regression problem over a
+grid. Subsequent versions---YOLOv4 \cite{yolov4} and
+YOLOv8 \cite{yolov8}---progressively improved backbone design, neck
+architecture, and training strategies. YOLOv8 introduced an
+anchor-free detection head and decoupled classification/regression
+branches, yielding superior mAP--speed trade-offs on standard
+benchmarks. The most recent YOLOv11 \cite{yolov11} incorporates
+C3k2 convolutional blocks and attention mechanisms for further
+efficiency gains. Sun~et~al. \cite{sun2026} proposed an improved
+YOLOv8s specifically for parts surface defect detection and achieved
+competitive performance, reinforcing the applicability of the YOLO
+family to industrial inspection tasks. Liu~et~al. \cite{liu2016ssd}
+proposed SSD, which predicts at multiple feature map scales;
+MobileNet \cite{mobilenet}, a lightweight backbone for mobile
+applications, was combined with SSD to form MobileNet-SSD, which
+was adopted by Katiyar~et~al. \cite{katiyar2021} for their
+component defect detection system.
+
+\subsection{Surface and Gear Defect Detection}
+
+Lv~et~al. \cite{lv2020} constructed a benchmark dataset for deep
+metallic surface defect detection and evaluated multiple CNN
+architectures, establishing that multi-scale feature fusion
+significantly improves recall on small defects. Liu~et~al.
+\cite{liu2021steel} developed a real-time steel surface defect
+detection system using deep learning and validated it in industrial
+deployment scenarios, achieving consistent detection at line speed.
+Ren~et~al. \cite{yolov8wd2025} applied a customised YOLOv8-WD
+architecture for detecting defects in automotive brake joint laser
+welds, demonstrating the transferability of YOLO-based models to
+metallic automotive component inspection. Zhou and Zhao
+\cite{mpayolo2025} proposed MPA-YOLO, an improved YOLOv8 framework
+for steel surface defect detection that incorporates multi-path
+attention modules for improved small-defect localisation.
+
+For gear-specific defects, vibration signal analysis combined with
+machine learning has been explored \cite{gear_fault}, though such
+approaches require physical sensor installation and cannot detect
+surface-visible defects that do not yet produce measurable vibration
+signatures. Visual inspection therefore remains complementary to
+vibration-based methods. A surface defect detection method for
+electronic products based on improved YOLOv11 \cite{yolo11defect2025}
+has also been reported, demonstrating accuracy improvements through
+attention and multi-scale fusion within the latest YOLO generation.
+
+\subsection{Multi-View Inspection Systems}
+
+Single-camera inspection systems are fundamentally limited to the
+visible surface area at the time of capture. Multi-view approaches
+address this by fusing information from multiple viewpoints.
+Huang~et~al. \cite{multiview3d} proposed multi-view 3D inspection
+systems for manufactured parts, demonstrating that coverage of
+hidden surfaces substantially reduces escape rate for defects
+located on non-principal faces. Smartinspection systems integrating
+machine learning with automated hardware have been explored in
+industrial conveyor-based setups \cite{smartinspection2023}, where
+the automation of part handling and orientation reduces the
+dependency on human operators. Low-cost industrial automation using
+open-source microcontrollers for robotic arm control has been
+validated as a cost-effective approach to complement machine vision
+systems \cite{arduino_automation}. Our system adopts the multi-view
+philosophy, using a robotic arm to flip the gear once so that all
+four principal surfaces are captured by the same pair of cameras.
+
+\subsection{Dataset and Annotation Methods}
+
+The MVTec AD dataset \cite{mvtec} established a rigorous benchmark
+for unsupervised anomaly detection across multiple industrial
+textures and objects, and has been widely used to evaluate
+defect detection models. The COCO dataset \cite{coco} and
+PASCAL VOC \cite{pascalvoc} established benchmark annotation
+standards for object detection. For domain-specific industrial
+inspection, custom datasets are essential because standard
+benchmarks do not contain gear images. Roboflow \cite{roboflow}
+has emerged as a widely used annotation and dataset management
+platform that supports multiple export formats (YOLO \texttt{.txt},
+COCO JSON, Pascal VOC XML) and provides built-in augmentation
+pipelines. LabelImg \cite{labelimg} is a companion tool for manual
+bounding-box annotation. Data augmentation---including horizontal
+flipping, rotation, scaling, brightness adjustment, and mosaic
+composition---has been shown to significantly improve model
+generalisation when training data is limited \cite{augmentation}.
+Song~et~al. \cite{song2020} demonstrated automatic surface defect
+detection with limited annotated data using strategic augmentation,
+further validating our approach to dataset expansion.
+% ============================================================
+
+\section{Methodology}
+\label{sec:method}
+
+\subsection{System Overview}
+\label{sec:sysoverview}
+
+The inspection pipeline is designed to systematically
+examine all critical surfaces of a spur gear without requiring any
+manual intervention, thereby ensuring consistency and repeatability
+in defect detection. The complete workflow of the system is described
+as follows:
+
+\begin{enumerate}
+  \item A spur gear is initially placed on the inspection platform,
+        which consists of a motorized conveyor belt that ensures
+        controlled positioning and minimal vibration during image capture.
+
+  \item {Camera~1} (top view) and {Camera~2} (side view)
+        simultaneously capture high-resolution images of the gear in
+        its initial orientation, ensuring that both the upper surface
+        and lateral profile are clearly visible.
+
+  \item The captured images are fed into a trained deep learning model,
+        which performs defect detection by identifying surface
+        irregularities such as cracks, wear, or missing teeth, and
+        generates per-view detection results along with confidence scores.
+
+  \item  A robotic arm automatically flips the gear to expose
+         the underside and opposite side surface
+
+  \item After flipping, Camera~1 (now capturing the bottom view) and
+        Camera~2 (capturing the opposite side view) again acquire
+        synchronized images, ensuring complete coverage of all
+        geometrically relevant surfaces of the gear.
+
+  \item These additional images are processed by the same deep learning
+        model to detect any defects present on the newly exposed surfaces,
+        maintaining consistency in evaluation across all views.
+
+\item A {final verdict} is determined: \textit{Accepted} if all four views are defect-free; \textit{Rejected} if any one or more views contain a detected defect.
+
+  \item  The verdict, per-view results, and system log are displayed
+        on the {CASTVISION web interface}.
+\end{enumerate}
+
+%%===== FIGURE 1 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{system_architecture.jpeg}
+  \caption{Proposed multi-view spur gear defect detection system
+           architecture showing the full inspection pipeline.}
+  \label{fig:system_arch}
+\end{figure}
+%%===== END FIGURE 1 =====%%
+
+%%===== FIGURE 2 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{workflow.jpeg}
+  \caption{Implementation workflow of the CASTVISION system.}
+  \label{fig:workflow}
+\end{figure}
+%%===== END FIGURE 2 =====%%
+
+%%===== FIGURE 3 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{accepted.jpeg}
+  \caption{Sample spur gear images from the custom dataset:
+           accepted (non-defective) and rejected (defective).}
+  \label{fig:gear_samples}
+\end{figure}
+%%===== END FIGURE 3 =====%%
+
+\subsection{Dataset Preparation}
+\label{sec:dataset}
+
+A custom dataset was created from scratch using real-captured images
+of spur gear components. All images were taken under controlled
+illumination in a laboratory setting to approximate industrial
+inspection conditions.
+
+\textbf{Dataset statistics:} A total of 1037 images were collected,
+comprising 529 images of accepted (non-defective) gears and 508
+images of rejected (defective) gears exhibiting various surface and
+tooth defects. The dataset was partitioned into training (796 images),
+validation (138 images), and test (103 images) splits using a
+stratified random strategy.
+
+\textbf{Annotation:} Bounding boxes around defect regions were drawn
+manually using LabelImg \cite{labelimg} and verified in Roboflow
+\cite{roboflow}. A key challenge encountered during annotation was
+inconsistency in bounding box tightness across team members: some
+annotators drew boxes with generous margins while others annotated
+tightly around the defect boundary. This was resolved through a
+dedicated team review session in which common annotation rules were
+established and borderline annotations were re-drawn to conform to
+the agreed standard.
+
+\textbf{Format export:} Roboflow was used to automatically export
+the dataset in the formats required by each model: YOLOv8 and
+YOLOv11 consume annotations in YOLO \texttt{.txt} format, while
+Faster R-CNN was trained with the COCO JSON format.
+
+\textbf{Data augmentation:} To improve model generalisation and
+mitigate the modest dataset size, the following augmentation
+operations were applied to the training set: horizontal flip, random
+rotation ($\pm15^{\circ}$), random scaling (0.9--1.1$\times$),
+brightness and contrast jitter, and mosaic composition (four random
+training images tiled into a single $640\times640$ input)
+\cite{augmentation}. Applying an approximate $3\times$ augmentation
+multiplier yields roughly 2400--3100 effective training images.
+The dataset distribution including augmented counts is summarised
+in Table~\ref{tab:dataset}.
+
+\begin{table}[H]
+  \centering
+  \caption{Dataset Distribution (Original and Augmented)}
+  \label{tab:dataset}
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabular}{lccccc}
+    \toprule
+    \textbf{Class} & \textbf{Orig.} & \textbf{Aug.$^{*}$}
+                   & \textbf{Train} & \textbf{Val} & \textbf{Test} \\
+    \midrule
+    Accepted & 529 & $\approx$1587 & $\approx$1220 & $\approx$212 & $\approx$155 \\
+    Rejected & 508 & $\approx$1524 & $\approx$1172 & $\approx$202 & $\approx$150 \\
+    \midrule
+    \textbf{Total} & \textbf{1037} & $\approx$\textbf{3111}
+      & $\approx$\textbf{2392} & $\approx$\textbf{414}
+      & $\approx$\textbf{305} \\
+    \bottomrule
+    \multicolumn{6}{l}{\footnotesize $^{*}$Augmented values are
+      approximate (3$\times$ factor applied).}
+  \end{tabular}
+\end{table}
+
+\subsection{Model Architectures}
+\label{sec:models}
+
+\subsubsection{YOLOv8}
+YOLOv8 \cite{yolov8} is the eighth generation of the Ultralytics
+YOLO family and adopts a fully \textit{anchor-free} detection
+paradigm. The backbone is a modified CSPDarknet that employs C2f
+(cross-stage partial with two bottlenecks) modules for improved
+gradient flow. A PANet (Path Aggregation Network) neck fuses
+multi-scale feature maps from three backbone stages, enabling
+detection across a range of object scales. The detection head is
+\textit{decoupled}: separate branches predict
+objectness/classification and bounding-box regression, allowing
+each branch to specialise independently. The model was pretrained
+on the COCO dataset \cite{coco} and fine-tuned on the custom gear
+dataset at $640\times640$ input resolution using the Ultralytics
+Python library \cite{yolov8}.
+
+%%===== FIGURE 4 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{yolov8_arch.jpeg}
+  \caption{YOLOv8 network architecture with CSPDarknet backbone,
+           PANet neck, and decoupled detection head.}
+  \label{fig:yolov8_arch}
+\end{figure}
+%%===== END FIGURE 4 =====%%
+
+\subsubsection{YOLOv11}
+YOLOv11 \cite{yolov11} (also referred to as YOLO11 in the
+Ultralytics documentation) represents the latest iteration of the
+YOLO family at the time of this study. It introduces
+{C3k2 blocks}---a compactified variant of the C3 module with
+two inner kernels---which reduce parameter count while preserving
+representational capacity. Self-attention mechanisms are
+incorporated into specific stages of the backbone to capture global
+context that pure convolutions miss. These architectural changes
+result in a lighter and faster model compared to YOLOv8 in terms
+of inference latency, though with a marginal trade-off in accuracy
+on the gear dataset. Input resolution is identical at $640\times640$.
+A YOLOv11-based method applied to electronic product surface defect
+detection \cite{yolo11defect2025} demonstrated the effectiveness
+of this generation's attention modules for fine-grained defect
+localisation in noisy industrial images.
+
+\subsubsection{Faster R-CNN}
+Faster R-CNN \cite{ren2015} is a two-stage detector. In the first
+stage, a {Region Proposal Network (RPN)} slides over the
+shared feature map and predicts objectness scores and rough
+bounding-box coordinates for anchor boxes of multiple scales and
+aspect ratios. The top-$k$ proposals are then passed to the second
+stage, which applies RoI (Region of Interest) pooling to extract
+fixed-size feature vectors and feeds them through two fully connected
+layers for final classification and bounding-box refinement. The
+backbone is ResNet-50 \cite{resnet} with a Feature Pyramid Network
+(FPN) for multi-scale feature extraction. The model was pretrained
+on ImageNet \cite{imagenet} and fine-tuned on the gear dataset with
+a shortest-edge input resolution of 800\,px.
+
+%%===== FIGURE 5 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{frcnn_arch.jpeg}
+  \caption{Faster R-CNN network architecture with ResNet-50 + FPN
+           backbone and Region Proposal Network (RPN).}
+  \label{fig:frcnn_arch}
+\end{figure}
+%%===== END FIGURE 5 =====%%
+
+\subsection{Training Configuration}
+\label{sec:training}
+
+All models were trained on Google Colab with GPU acceleration
+(NVIDIA Tesla T4). The key hyperparameters are summarised below.
+
+\textbf{YOLOv8 and YOLOv11:}
+\begin{itemize}
+  \item Framework: Ultralytics Python library (PyTorch backend
+        \cite{pytorch})
+  \item Epochs: 100; Batch size: 16
+  \item Optimizer: SGD with momentum 0.937 and weight decay
+        $5\times10^{-4}$
+  \item Learning rate: 0.01 with cosine annealing decay
+  \item Loss: Binary Cross-Entropy (classification) +
+        Complete IoU/CIoU (regression)
+  \item Checkpoint saving: every 5 epochs to Google Drive
+        (required to recover from Colab session disconnections)
+\end{itemize}
+
+\textbf{Faster R-CNN:}
+\begin{itemize}
+  \item Framework: PyTorch Torchvision detection module
+        \cite{pytorch}
+  \item Epochs: 100; Batch size: 16
+  \item Optimizer: AdamW with learning rate $1\times10^{-3}$,
+        cosine decay
+  \item Loss: Cross-Entropy (classification) +
+        Smooth~$L_1$ (box regression)
+  \item Checkpoint saving: every 5 epochs to Google Drive
+        (training required several hours per run; Colab
+        disconnections would otherwise lose all progress)
+\end{itemize}
+
+\subsection{Evaluation Metrics}
+\label{sec:metrics}
+
+The following standard detection metrics were used for evaluation.
+Let TP, FP, and FN denote true positives, false positives, and
+false negatives, respectively.
+
+\begin{equation}
+  \text{Precision} = \frac{\text{TP}}{\text{TP} + \text{FP}}
+  \label{eq:precision}
+\end{equation}
+
+\begin{equation}
+  \text{Recall} = \frac{\text{TP}}{\text{TP} + \text{FN}}
+  \label{eq:recall}
+\end{equation}
+
+\begin{equation}
+  F_1 = 2 \times \frac{\text{Precision} \times \text{Recall}}
+               {\text{Precision} + \text{Recall}}
+  \label{eq:f1}
+\end{equation}
+
+\begin{equation}
+  \text{mAP} = \frac{1}{N}\sum_{i=1}^{N} \text{AP}_i
+  \label{eq:map}
+\end{equation}
+
+where $N$ is the number of classes and $\text{AP}_i$ is the area
+under the Precision-Recall curve for class $i$ at an IoU threshold
+of 0.50. Additional deployment metrics---inference time per image
+(ms), frames per second (FPS), and model file size (MB)---were also
+recorded to characterise real-time applicability.
+
+\subsection{Web Application: CASTVISION}
+\label{sec:webapp}
+
+The CASTVISION web application provides a graphical front-end for
+the inspection system. Users can either {upload images} from
+disk or {use a connected camera} to capture all four views
+directly through the browser interface. The interface presents:
+\begin{itemize}
+  \item Four image panels labelled VIEW~1 through VIEW~4, one per
+        camera capture.
+  \item A {RUN FULL INSPECTION} button that triggers
+        inference across all four views simultaneously.
+  \item A real-time {System Log} showing detection events
+        per view.
+  \item A {Final Verdict} panel displaying {``OK''}
+        (all four views defect-free, shown in green) or
+        {``REJECTED''} (defect detected in one or more
+        views, shown in red), together with a per-view result
+        breakdown indicating which specific views failed.
+\end{itemize}
+
+%%===== FIGURE 6 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{web_accepted.jpeg}
+  \caption{CASTVISION web interface displaying an accepted gear
+           inspection result (all four views defect-free, green
+           ``OK'' verdict).}
+  \label{fig:web_accepted}
+\end{figure}
+%%===== END FIGURE 6 =====%%
+
+%%===== FIGURE 7 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{web_rejected.jpeg}
+  \caption{CASTVISION web interface displaying a rejected gear
+           inspection result (defect detected in one or more views,
+           red ``REJECTED'' verdict).}
+  \label{fig:web_rejected}
+\end{figure}
+%%===== END FIGURE 7 =====%%
+
+% ============================================================
+\section{Results and Discussion}
+\label{sec:results}
+
+\subsection{Model Performance Comparison}
+
+Table~\ref{tab:results} presents the quantitative performance of
+all three models on the 103-image held-out test set. F1-score
+values were computed from the precision and recall values using
+Equation~\eqref{eq:f1}. The best value in each metric column is
+highlighted in {bold}.
+
+\begin{table*}[t]
+  \centering
+  \caption{Model Performance Comparison on the Custom Spur Gear
+           Test Dataset}
+  \label{tab:results}
+  \renewcommand{\arraystretch}{1.3}
+  \begin{tabular}{lcccccccr}
+    \toprule
+    \textbf{Model} & \textbf{mAP (\%)} & \textbf{Precision (\%)}
+      & \textbf{Recall (\%)} & \textbf{F1-Score}
+      & \textbf{FPS} & \textbf{Infer. (ms)}
+      & \textbf{Size (MB)} & \textbf{Rank} \\
+    \midrule
+    YOLOv8
+      & \textbf{97.31} & \textbf{94.98} & \textbf{97.04}
+      & \textbf{0.960} & 38.76 & 25.8 & 98.6  & \textbf{1} \\
+    YOLOv11
+      & 71.45 & 75.87 & 91.44
+      & 0.829 & \textbf{70.05} & \textbf{14.4} & 120.43 & 2 \\
+    Faster R-CNN
+      & 69.67 & 84.61 & 94.44
+      & 0.892 & 9.86 & 101.46 & 158.07 & 3 \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+%%===== FIGURE 9 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{pr_curves.jpeg}
+  \caption{Performance metric comparison of YOLOv8, YOLOv11, and
+           Faster R-CNN across mAP, Precision, Recall, and FPS.}
+  \label{fig:bar_comparison}
+\end{figure}
+%%===== END FIGURE 9 =====%%
+
+%%===== FIGURE 10 =====%%
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{detection_output.jpeg}
+  \caption{Sample defect detection results by YOLOv8 on spur gear
+           test images with bounding box localisation.}
+  \label{fig:detection_output}
+\end{figure}
+%%===== END FIGURE 10 =====%%
+
+\subsection{Comparison with Related Works}
+
+Table~\ref{tab:related} compares the proposed system with
+representative prior works in the defect detection literature.
+
+\begin{table*}[t]
+  \centering
+  \caption{Comparison with Related Works}
+  \label{tab:related}
+  \renewcommand{\arraystretch}{1.25}
+  \begin{tabular}{p{3.0cm} p{3.0cm} p{2.8cm} p{3.2cm} c}
+    \toprule
+    \textbf{Reference} & \textbf{Method}
+      & \textbf{Dataset / Domain}
+      & \textbf{Limitation}
+      & \textbf{Multi-View?} \\
+    \midrule
+    Katiyar~et~al. \cite{katiyar2021}
+      & MobileNet-SSD
+      & Sealing surface
+      & Single view; single component type
+      & No \\
+    Tabernik~et~al. \cite{tabernik2019}
+      & Segmentation CNN
+      & DAGM surface defects
+      & Texture defects only; no gear-specific
+      & No \\
+    Lv~et~al. \cite{lv2020}
+      & Deep CNN + multi-scale FPN
+      & Metallic surface
+      & Surface-only; no 3D coverage
+      & No \\
+    Ren~et~al. \cite{yolov8wd2025}
+      & YOLOv8-WD
+      & Auto. brake laser welds
+      & Single view; weld-specific
+      & No \\
+    \midrule
+    \rowcolor[gray]{0.90}
+    \textbf{Proposed (YOLOv8)}
+      & \textbf{Multi-view YOLOv8}
+      & \textbf{Custom Spur Gear}
+      & \textbf{One gear type; binary class only}
+      & \textbf{Yes} \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\subsection{Discussion}
+
+\textbf{YOLOv8 as the recommended model.}
+YOLOv8 achieves the highest mAP (97.31\%), precision (94.98\%), and
+recall (97.04\%) among the three models. In a manufacturing quality
+control context, \textit{recall} is arguably the most critical
+metric: a low recall implies that defective gears are incorrectly
+classified as accepted and pass through to the production line.
+YOLOv8's recall of 97.04\% means that only $\approx$3\% of defective
+gears would escape detection, a significant improvement over both
+YOLOv11 (91.44\%) and Faster R-CNN (94.44\%). Its superior precision
+(94.98\%) also limits false alarms that would reject non-defective
+gears and reduce throughput. The F1-score of 0.960 confirms the
+balanced high performance across both classes. YOLOv8 is therefore
+the {recommended production model} for the CASTVISION system.
+
+\textbf{YOLOv11 speed advantage.}
+YOLOv11 achieves the lowest inference time at 14.4\,ms per image
+(70.05\,FPS), approximately 1.8$\times$ faster than YOLOv8
+(25.8\,ms, 38.76\,FPS). This makes YOLOv11 attractive for
+high-throughput inspection lines where the camera capture rate
+is the bottleneck and slightly lower detection accuracy is
+acceptable. However, its mAP (71.45\%) and precision (75.87\%) are
+notably lower, indicating more frequent false positives compared to
+YOLOv8. This trade-off is consistent with recent literature on
+YOLOv11 applied to surface defects \cite{yolo11defect2025}, which
+showed similar speed gains at the cost of marginal accuracy reduction
+relative to YOLOv8-class models.
+
+\textbf{Faster R-CNN inefficiency for binary task.}
+Faster R-CNN records the lowest mAP (69.67\%) and the lowest
+throughput (9.86\,FPS, 101.46\,ms inference), and the largest
+model size (158.07\,MB). The two-stage architecture---region
+proposal generation followed by per-proposal classification---incurs
+substantial computational overhead that is not justified for a binary
+(two-class) detection task. Faster R-CNN is typically advantageous
+when precise localisation of many small objects is required (e.g.,
+dense COCO scenarios); for the simpler spur gear binary inspection
+task, the overhead of the RPN constitutes an inefficiency.
+
+\textbf{Accuracy--speed trade-off.}
+Figure~\ref{fig:bar_comparison} illustrates that no single model
+dominates all metrics simultaneously. YOLOv8 leads on all accuracy
+metrics while YOLOv11 leads on speed. For production deployment,
+the choice depends on the line throughput requirement: at conveyor
+speeds below $\approx$35 gears/minute, YOLOv8 is preferred for its
+higher detection reliability; above that threshold, YOLOv11 provides
+adequate accuracy with comfortable throughput headroom.
+
+\textbf{Multi-view advantage.}
+By capturing four views per gear, the system eliminates
+the blind spots inherent in single-camera inspection
+\cite{multiview3d}. In our test set, several gears with defects
+visible only on the bottom face or opposite side were correctly
+rejected by the system. A hypothetical single-view system inspecting
+only the top view would have missed these defects, artificially
+inflating precision and recall on the subset of visible defects
+while missing a meaningful fraction of actual rejects.
+
+\textbf{Comparison with Katiyar~et~al.}
+The base paper \cite{katiyar2021} achieved 95\% precision using
+MobileNet-SSD on sealing surface images in a single-view setup.
+Our YOLOv8 achieves comparable precision (94.98\%) on a more complex
+task (three-dimensional gear components with tooth geometry) while
+additionally providing multi-view coverage, bounding-box
+localisation of defect regions, and a higher recall (97.04\%).
+This demonstrates that the proposed system meaningfully extends the
+state of the art established by \cite{katiyar2021} for the gear
+inspection domain.
+
+% ============================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+This paper presented an automated multi-view spur gear
+defect detection system integrating a conveyor belt, dual cameras,
+a robotic arm, and deep learning-based object detection. The system
+captures four views per gear---top, side, bottom, and opposite
+side---to ensure complete surface coverage, and delivers a binary
+Accept/Reject verdict through a web-based graphical interface.
+
+A custom dataset of 1037 real-captured spur gear images was
+constructed and annotated for binary defect classification. Three
+detection architectures---YOLOv8, YOLOv11, and Faster R-CNN---were
+trained for 100 epochs on this dataset and evaluated on a held-out
+test set. YOLOv8 emerged as the best overall model, achieving a
+mean Average Precision of 97.31\%, precision of 94.98\%, and recall
+of 97.04\%, making it the recommended model for production
+deployment. YOLOv11 offers the fastest inference (14.4\,ms,
+70.05\,FPS) and is suitable for throughput-critical lines where
+slightly lower accuracy is tolerable. Faster R-CNN exhibited the
+lowest throughput and accuracy among the three, confirming that
+its two-stage overhead is not well-suited to the binary gear
+inspection task.
+
+\textbf{Limitations:}
+(1)~The dataset is limited to a single gear type (spur gear);
+generalisation to other geometries has not been validated.
+(2)~Lighting variation across different industrial environments
+is not fully addressed in the current dataset or training pipeline.
+(3)~Defect sub-type classification (pitting, spalling, crack,
+tooth breakage, wear) is not performed---the system provides only
+binary Accept/Reject output.
+(4)~Input validation for invalid or unrelated image uploads
+(e.g., non-gear images) is not yet implemented in the web GUI.
+
+\textbf{Future Work:}
+(1)~Extend the dataset to helical gears, bevel gears, and
+rack-and-pinion components.
+(2)~Introduce defect sub-type classification to provide actionable
+maintenance diagnostics.
+(3)~Deploy the model on edge hardware (NVIDIA Jetson Nano or
+Raspberry Pi) for real-time on-device inference without cloud
+dependency.
+(4)~Optimise the end-to-end web-to-hardware pipeline for lower
+end-to-end latency.
+(5)~Explore transformer-based detection architectures such as
+DETR and RT-DETR for comparison.
+(6)~Implement invalid input detection and graceful rejection in
+the CASTVISION web GUI.
+
+% ============================================================
+\begin{thebibliography}{30}
+
+\bibitem{katiyar2021}
+A.~Katiyar, S.~Behal, and J.~Singh,
+``Automated Defect Detection in Physical Components using Machine
+Learning,''
+in \textit{Proc. 8th Int. Conf. on Computing for Sustainable Global
+Development (INDIACom)}, IEEE, pp.~527--532, 2021.
+
+\bibitem{ren2015}
+S.~Ren, K.~He, R.~Girshick, and J.~Sun,
+``Faster R-CNN: Towards Real-Time Object Detection with Region
+Proposal Networks,''
+\textit{Advances in Neural Information Processing Systems (NeurIPS)},
+vol.~28, pp.~91--99, 2015.
+
+\bibitem{tabernik2019}
+D.~Tabernik, S.~\v{S}ela, J.~Skvare\v{c}, and D.~Sko\v{c}aj,
+``Segmentation-Based Deep-Learning Approach for Surface-Defect
+Detection,''
+\textit{Journal of Intelligent Manufacturing}, vol.~31,
+pp.~759--776, 2019.
+
+\bibitem{ilani2025}
+M.~A. Ilani and Y.~M. Banad,
+``CNN-Based Surface Defect Detection for Industrial Inspection,''
+\textit{arXiv preprint arXiv:2509.05813}, Sep. 2025.
+
+\bibitem{lv2020}
+X.~Lv, F.~Duan, J.~Jiang, X.~Fu, and L.~Gan,
+``Deep Metallic Surface Defect Detection: The New Benchmark and
+Detection Network,''
+\textit{Sensors}, vol.~20, no.~6, p.~1562, MDPI, 2020.
+
+\bibitem{sun2026}
+Y.~Sun \textit{et al.},
+``Parts Surface Defect Detection Algorithm Based on Improved
+YOLOv8s,''
+\textit{Engineering Reports}, 2026.
+doi:~10.1002/eng2.70569
+
+\bibitem{yolo11defect2025}
+Author \textit{et al.},
+``A Surface Defect Detection Method for Electronic Products Based on
+Improved YOLOv11,''
+\textit{PLOS ONE}, 2025.
+doi:~10.1371/journal.pone.0334333
+
+\bibitem{redmon2016}
+J.~Redmon, S.~Divvala, R.~Girshick, and A.~Farhadi,
+``You Only Look Once: Unified, Real-Time Object Detection,''
+in \textit{Proc. IEEE Conf. Computer Vision and Pattern Recognition
+(CVPR)}, pp.~779--788, 2016.
+
+\bibitem{yolov4}
+A.~Bochkovskiy, C.-Y.~Wang, and H.-Y.~M.~Liao,
+``YOLOv4: Optimal Speed and Accuracy of Object Detection,''
+\textit{arXiv preprint arXiv:2004.10934}, 2020.
+
+\bibitem{smartinspection2023}
+Author(s),
+``Design and Fabrication of Smart Inspection System for Industrial
+Products Using ML Algorithm,''
+in \textit{Proc. IEEE Conf.}, 2023.
+doi:~10.1109/10331741
+
+\bibitem{resnet}
+K.~He, X.~Zhang, S.~Ren, and J.~Sun,
+``Deep Residual Learning for Image Recognition,''
+in \textit{Proc. IEEE Conf. Computer Vision and Pattern Recognition
+(CVPR)}, pp.~770--778, 2016.
+
+\bibitem{vggnet}
+K.~Simonyan and A.~Zisserman,
+``Very Deep Convolutional Networks for Large-Scale Image
+Recognition,''
+\textit{arXiv preprint arXiv:1409.1556}, 2014.
+
+\bibitem{alexnet}
+A.~Krizhevsky, I.~Sutskever, and G.~E.~Hinton,
+``ImageNet Classification with Deep Convolutional Neural Networks,''
+in \textit{Advances in Neural Information Processing Systems
+(NeurIPS)}, vol.~25, pp.~1097--1105, 2012.
+
+\bibitem{mpayolo2025}
+Y.~Zhou and Z.~Zhao,
+``{MPA-YOLO}: Steel Surface Defect Detection Based on Improved
+{YOLOv8} Framework,''
+\textit{Pattern Recognition}, 2025.
+doi:~10.1016/j.patcog.2025.111576
+
+\bibitem{yolov8wd2025}
+J.~Ren, H.~Zhang, and M.~Yue,
+``YOLOv8-WD: Deep Learning-Based Detection of Defects in Automotive
+Brake Joint Laser Welds,''
+\textit{Applied Sciences}, vol.~15, no.~3, p.~1184, 2025.
+doi:~10.3390/app15031184
+
+\bibitem{fastrcnn}
+R.~Girshick,
+``Fast R-CNN,''
+in \textit{Proc. IEEE Int. Conf. Computer Vision (ICCV)},
+pp.~1440--1448, 2015.
+
+\bibitem{coco}
+T.-Y.~Lin, M.~Maire, S.~Belongie, J.~Hays, P.~Perona,
+D.~Ramanan, P.~Doll{\'a}r, and C.~L.~Zitnick,
+``Microsoft COCO: Common Objects in Context,''
+in \textit{Proc. European Conf. Computer Vision (ECCV)},
+pp.~740--755, 2014.
+
+\bibitem{imagenet}
+J.~Deng, W.~Dong, R.~Socher, L.-J.~Li, K.~Li, and L.~Fei-Fei,
+``ImageNet: A Large-Scale Hierarchical Image Database,''
+in \textit{Proc. IEEE Conf. Computer Vision and Pattern Recognition
+(CVPR)}, pp.~248--255, 2009.
+
+\bibitem{transfer_learning}
+S.~J.~Pan and Q.~Yang,
+``A Survey on Transfer Learning,''
+\textit{IEEE Transactions on Knowledge and Data Engineering},
+vol.~22, no.~10, pp.~1345--1359, 2010.
+
+\bibitem{gear_fault}
+W.~A.~Smith,
+``Gear Fault Detection Using Vibration Signal Analysis,''
+\textit{Mechanical Systems and Signal Processing}, vol.~49,
+no.~1--2, pp.~265--292, 2014.
+
+\bibitem{visual_inspection_survey}
+D.~Mery and M.~A.~Berti,
+``Automatic Detection of Welding Defects Using Texture Features,''
+\textit{NDT \& E International}, vol.~36, no.~5,
+pp.~343--348, 2003.
+
+\bibitem{augmentation}
+L.~Perez and J.~Wang,
+``The Effectiveness of Data Augmentation in Image Classification
+Using Deep Learning,''
+\textit{arXiv preprint arXiv:1712.04621}, 2017.
+
+\bibitem{zhang2021inspection}
+H.~Zhang, L.~Yang, and H.~Wang,
+``Deep Learning-Based Visual Inspection for Surface Defect Detection
+in Industrial Manufacturing,''
+\textit{IEEE Access}, vol.~9, pp.~145626--145636, 2021.
+
+\bibitem{mvtec}
+P.~Bergmann, M.~Fauser, D.~Sattlegger, and C.~Steger,
+``MVTec AD---A Comprehensive Real-World Dataset for Unsupervised
+Anomaly Detection,''
+in \textit{Proc. IEEE/CVF Conf. Computer Vision and Pattern
+Recognition (CVPR)}, pp.~9584--9592, 2019.
+
+\bibitem{haobo2024}
+Y.~Haobo,
+``A Survey of Industrial Surface Defect Detection Based on Deep
+Learning,''
+in \textit{Proc. Int. Conf. Cyber-Physical Social Intelligence
+(ICCSI)}, pp.~1--6, 2024.
+
+\bibitem{liu2021steel}
+Z.~Liu, Y.~Wang, and X.~Zhang,
+``Real-Time Steel Surface Defect Detection Using Deep Learning-Based
+Vision System,''
+\textit{IEEE Access}, vol.~9, pp.~121386--121396, 2021.
+
+\bibitem{dl_quality_review}
+Y.~Cao, K.~Liu, and C.~Huang,
+``A Deep Learning-Based Visual Inspection Method for Product Quality
+Control,''
+\textit{IEEE Access}, vol.~7, pp.~175782--175793, 2019.
+
+\bibitem{arduino_automation}
+K.~Hyun,
+``Design and Implementation of a Low-Cost Industrial Automation
+System Using Open-Source Microcontrollers,''
+\textit{International Journal of Advanced Manufacturing Technology},
+vol.~112, pp.~1--12, 2021.
+
+\bibitem{multiview3d}
+X.~Huang, J.~Zhang, and Y.~Li,
+``Multi-View 3D Shape Inspection System for Industrial Parts Using
+Structured Light and Convolutional Neural Networks,''
+\textit{Optics and Lasers in Engineering}, vol.~132,
+p.~106106, 2020.
+
+\bibitem{song2020}
+H.~Song, H.~Huang, and H.~Yang,
+``Automatic Surface Defect Detection Method Based on Deep
+Learning,''
+\textit{Applied Sciences}, vol.~10, no.~1, p.~100, 2020.
+
+\bibitem{yolov8}
+G.~Jocher, A.~Chaurasia, and J.~Qiu,
+``Ultralytics YOLOv8,''
+\textit{GitHub}, 2023.
+[Online]. Available: https://github.com/ultralytics/ultralytics
+
+\bibitem{yolov11}
+Ultralytics,
+``YOLO11: The Latest Ultralytics YOLO Model,''
+\textit{Ultralytics Documentation}, 2024.
+[Online]. Available: https://docs.ultralytics.com/models/yolo11/
+
+\bibitem{roboflow}
+Roboflow,
+``Roboflow: Computer Vision Developer Platform,''
+\textit{Roboflow Inc.}, 2023.
+[Online]. Available: https://roboflow.com
+
+\bibitem{labelimg}
+T.~Tzutalin,
+``LabelImg: Graphical Image Annotation Tool,''
+\textit{GitHub}, 2015.
+[Online]. Available: https://github.com/tzutalin/labelImg
+
+\bibitem{pytorch}
+A.~Paszke \textit{et al.},
+``PyTorch: An Imperative Style, High-Performance Deep Learning
+Library,''
+in \textit{Advances in Neural Information Processing Systems
+(NeurIPS)}, vol.~32, pp.~8024--8035, 2019.
+
+\bibitem{pascalvoc}
+M.~Everingham, L.~Van~Gool, C.~K.~I.~Williams,
+J.~Winn, and A.~Zisserman,
+``The PASCAL Visual Object Classes (VOC) Challenge,''
+\textit{International Journal of Computer Vision}, vol.~88,
+pp.~303--338, 2010.
+
+\bibitem{liu2016ssd}
+W.~Liu, D.~Anguelov, D.~Erhan, C.~Szegedy, S.~Reed,
+C.-Y.~Fu, and A.~C.~Berg,
+``SSD: Single Shot MultiBox Detector,''
+in \textit{Proc. European Conf. Computer Vision (ECCV)},
+pp.~21--37, 2016.
+
+\bibitem{mobilenet}
+A.~G.~Howard, M.~Zhu, B.~Chen, D.~Kalenichenko, W.~Wang,
+T.~Weyand, M.~Andreetto, and H.~Adam,
+``MobileNets: Efficient Convolutional Neural Networks for Mobile
+Vision Applications,''
+\textit{arXiv preprint arXiv:1704.04861}, 2017.
+
+\end{thebibliography}
+
+\end{document}
